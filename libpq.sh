@@ -1,26 +1,59 @@
 #!/bin/bash
 
-# edit these version numbers to suit your needs
-VERSION=11.7 #12.2
-IOS=13.7 # 14.0
-LIBRESSL=3.0.2
-MACOSX=10.15 #11.0
+# edit these version numbers to suit your needs, or define them before running the script
+
+if [ -z "$VERSION" ]
+then
+  VERSION=11.7 #12.2
+fi
+
+if [ -z "$IOS" ]
+then
+  IOS=13.7 # 14.0
+fi
+
+if [ -z "$LIBRESSL" ]
+then
+  LIBRESSL=3.0.2
+fi
+
+if [ -z "$MACOSX" ]
+then
+  MACOSX=10.15 #11.0
+fi
 
 declare -a all_targets=("ios-arm64" "ios-arm64e" "simulator_x86_64" "simulator_x86_64h" "simulator_arm64e" "simulator_arm64" "catalyst_x86_64" "catalyst_arm64" "macos_x86_64" "macos_x86_64h" "macos_arm64")
 declare -a old_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
 declare -a appleSiliconTargets=("simulator_arm64" "simulator_x86_64" "catalyst_x86_64" "catalyst_arm64" "macos_arm64" "macos_x86_64" "ios-arm64e")
 
-#declare -a libressl_build_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
-declare -a libressl_build_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
-declare -a libressl_link_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
-# TODO: catalyst_x86_64 and macos_x86_64 are out of order at the moment
-#declare -a libpq_build_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
-declare -a libpq_build_targets=("simulator_x86_64" "ios-arm64e")
-#declare -a libpq_link_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
-declare -a libpq_link_targets=("simulator_x86_64" "ios-arm64e")
+if [ -z "$libressl_build_targets" ]
+then
+  #declare -a libressl_build_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
+  declare -a libressl_build_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
+  #declare -a libressl_build_targets=$all_targets
+fi
 
-#declare -a libressl_build_targets=$all_targets
-#declare -a libressl_link_targets=$libressl_build_targets
+if [ -z "$libressl_link_targets" ]
+then
+  declare -a libressl_link_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
+  #declare -a libressl_link_targets=$libressl_build_targets
+fi
+
+if [ -z "$libpq_build_targets" ]
+then
+  # TODO: catalyst_x86_64 and macos_x86_64 are out of order at the moment
+  declare -a libpq_build_targets=("simulator_x86_64" "ios-arm64e")
+  #declare -a libpq_build_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
+  #declare -a libpq_build_targets=$all_targets
+fi
+
+if [ -z "$libpq_link_targets" ]
+then
+  #declare -a libpq_link_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
+  declare -a libpq_link_targets=("simulator_x86_64" "ios-arm64e")
+  #declare -a libpq_link_targets=$libpq_build_targets
+fi
+
 
 
 set -e
@@ -90,7 +123,7 @@ cd libressl-${LIBRESSL}
 # this cleans everything out of the build directory so we can have a clean build
 if [ -e "./Makefile" ]
 then
-	# since we clean before we build, do we still need this??
+  # since we clean before we build, do we still need this??
     make distclean
 fi
 
@@ -483,33 +516,33 @@ target=catalyst_x86_64
 if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}"; then
 
     tar -zxf "postgresql-${VERSION}.tar.gz"
-	cd postgresql-${VERSION}
-	chmod u+x ./configure
+  cd postgresql-${VERSION}
+  chmod u+x ./configure
 
-	DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
-	SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
+  DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
+  SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
 
     echo "\n\n--> macOS Catalyst x86_64 libpq Compilation"
 
-	./configure --without-readline --with-openssl \
-	  CC="/usr/bin/clang -target x86_64-apple-ios${IOS}-macabi -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CXX="/usr/bin/clang -target x86_64-apple-ios${IOS}-macabi -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
-	  CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
-	  CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
-	  CPP="/usr/bin/clang -E -D__x86_64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-	  LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
-	make -C src/interfaces/libpq V=1
-	echo "--> XYX"
-	echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-	cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
+  ./configure --without-readline --with-openssl \
+    CC="/usr/bin/clang -target x86_64-apple-ios${IOS}-macabi -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CXX="/usr/bin/clang -target x86_64-apple-ios${IOS}-macabi -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
+    CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
+    CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
+    CPP="/usr/bin/clang -E -D__x86_64__=1 $CPPFLAGS -isysroot $SDKROOT" \
+    LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
+  make -C src/interfaces/libpq V=1
+  echo "--> XYX"
+  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
+  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
     # what about the header files? Which ones should we copy?
 
     echo "\n\n--> XX macOS Catalyst x86_64 libpq Compilation"
 
-	cd ..
-	rm -R postgresql-${VERSION}
+  cd ..
+  rm -R postgresql-${VERSION}
 
 fi;
 
@@ -521,33 +554,33 @@ target=catalyst_arm64
 if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}"; then
 
     tar -zxf "postgresql-${VERSION}.tar.gz"
-	cd postgresql-${VERSION}
-	chmod u+x ./configure
+  cd postgresql-${VERSION}
+  chmod u+x ./configure
 
-	DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
-	SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
+  DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
+  SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
 
     echo "\n\n--> macOS Catalyst arm64 libpq Compilation"
 
-	./configure --without-readline --with-openssl \
-	  CC="/usr/bin/clang -target arm64-apple-ios${IOS}-macabi -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CXX="/usr/bin/clang -target arm64-apple-ios${IOS}-macabi -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
-	  CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
-	  CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
-	  CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-	  LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
-	make -C src/interfaces/libpq V=1
-	echo "--> XYX"
-	echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-	cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
+  ./configure --without-readline --with-openssl \
+    CC="/usr/bin/clang -target arm64-apple-ios${IOS}-macabi -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CXX="/usr/bin/clang -target arm64-apple-ios${IOS}-macabi -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
+    CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
+    CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
+    CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
+    LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
+  make -C src/interfaces/libpq V=1
+  echo "--> XYX"
+  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
+  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
     # what about the header files? Which ones should we copy?
 
     echo "\n\n--> XX macOS Catalyst arm64 libpq Compilation"
 
-	cd ..
-	rm -R postgresql-${VERSION}
+  cd ..
+  rm -R postgresql-${VERSION}
 
 fi;
 
@@ -560,33 +593,33 @@ target=macos_arm64
 if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}"; then
 
     tar -zxf "postgresql-${VERSION}.tar.gz"
-	cd postgresql-${VERSION}
-	chmod u+x ./configure
+  cd postgresql-${VERSION}
+  chmod u+x ./configure
 
-	DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
-	SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
+  DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
+  SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
 
     echo "\n\n--> macOS arm64 libpq Compilation"
 
-	./configure --without-readline --with-openssl \
-	  CC="/usr/bin/clang -target arm64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CXX="/usr/bin/clang -target arm64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
-	  CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
-	  CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
-	  CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-	  LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
-	make -C src/interfaces/libpq V=1
-	echo "--> XYX"
-	echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-	cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
+  ./configure --without-readline --with-openssl \
+    CC="/usr/bin/clang -target arm64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CXX="/usr/bin/clang -target arm64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
+    CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
+    CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
+    CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
+    LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
+  make -C src/interfaces/libpq V=1
+  echo "--> XYX"
+  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
+  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
     # what about the header files? Which ones should we copy?
 
     echo "\n\n--> XX macOS arm64 libpq Compilation"
 
-	cd ..
-	rm -R postgresql-${VERSION}
+  cd ..
+  rm -R postgresql-${VERSION}
 
 fi;
 
@@ -599,33 +632,33 @@ target=macos_arm64e
 if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}"; then
 
     tar -zxf "postgresql-${VERSION}.tar.gz"
-	cd postgresql-${VERSION}
-	chmod u+x ./configure
+  cd postgresql-${VERSION}
+  chmod u+x ./configure
 
-	DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
-	SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
+  DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
+  SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
 
     echo "\n\n--> macOS arm64e libpq Compilation"
 
-	./configure --without-readline --with-openssl \
-	  CC="/usr/bin/clang -target arm64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CXX="/usr/bin/clang -target arm64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
-	  CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
-	  CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
-	  CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-	  LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
-	make -C src/interfaces/libpq V=1
-	echo "--> XYX"
-	echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-	cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
+  ./configure --without-readline --with-openssl \
+    CC="/usr/bin/clang -target arm64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CXX="/usr/bin/clang -target arm64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
+    CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
+    CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
+    CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
+    LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
+  make -C src/interfaces/libpq V=1
+  echo "--> XYX"
+  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
+  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
     # what about the header files? Which ones should we copy?
 
     echo "\n\n--> XX macOS arm64e libpq Compilation"
 
-	cd ..
-	rm -R postgresql-${VERSION}
+  cd ..
+  rm -R postgresql-${VERSION}
 
 fi;
 
@@ -638,33 +671,33 @@ target=macos_x86_64
 if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}"; then
 
     tar -zxf "postgresql-${VERSION}.tar.gz"
-	cd postgresql-${VERSION}
-	chmod u+x ./configure
+  cd postgresql-${VERSION}
+  chmod u+x ./configure
 
-	DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
-	SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
+  DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
+  SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
 
     echo "\n\n--> macOS x86_64 libpq Compilation"
 
-	./configure --without-readline --with-openssl \
-	  CC="/usr/bin/clang -target x86_64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CXX="/usr/bin/clang -target x86_64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
-	  CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
-	  CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
-	  CPP="/usr/bin/clang -E -D__x86_64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-	  LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
-	make -C src/interfaces/libpq V=1
-	echo "--> XYX"
-	echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-	cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
+  ./configure --without-readline --with-openssl \
+    CC="/usr/bin/clang -target x86_64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CXX="/usr/bin/clang -target x86_64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
+    CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
+    CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
+    CPP="/usr/bin/clang -E -D__x86_64__=1 $CPPFLAGS -isysroot $SDKROOT" \
+    LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
+  make -C src/interfaces/libpq V=1
+  echo "--> XYX"
+  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
+  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
     # what about the header files? Which ones should we copy?
 
     echo "\n\n--> XX macOS x86_64 libpq Compilation"
 
-	cd ..
-	rm -R postgresql-${VERSION}
+  cd ..
+  rm -R postgresql-${VERSION}
 
 fi;
 
@@ -677,33 +710,33 @@ target=macos_x86_64h
 if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}"; then
 
     tar -zxf "postgresql-${VERSION}.tar.gz"
-	cd postgresql-${VERSION}
-	chmod u+x ./configure
+  cd postgresql-${VERSION}
+  chmod u+x ./configure
 
-	DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
-	SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
+  DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
+  SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
 
     echo "\n\n--> macOS x86_64h libpq Compilation"
 
-	./configure --without-readline --with-openssl \
-	  CC="/usr/bin/clang -target x86_64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CXX="/usr/bin/clang -target x86_64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
-	  CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
-	  CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
-	  CPP="/usr/bin/clang -E -D__x86_64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-	  LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
-	make -C src/interfaces/libpq V=1
-	echo "--> XYX"
-	echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-	cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
+  ./configure --without-readline --with-openssl \
+    CC="/usr/bin/clang -target x86_64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CXX="/usr/bin/clang -target x86_64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
+    CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
+    CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
+    CPP="/usr/bin/clang -E -D__x86_64__=1 $CPPFLAGS -isysroot $SDKROOT" \
+    LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
+  make -C src/interfaces/libpq V=1
+  echo "--> XYX"
+  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
+  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
     # what about the header files? Which ones should we copy?
 
     echo "\n\n--> XX macOS x86_64h libpq Compilation"
 
-	cd ..
-	rm -R postgresql-${VERSION}
+  cd ..
+  rm -R postgresql-${VERSION}
 
 fi;
 
@@ -715,32 +748,32 @@ target=ios-arm64
 if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}"; then
 
     tar -zxf "postgresql-${VERSION}.tar.gz"
-	cd postgresql-${VERSION}
-	chmod u+x ./configure
+  cd postgresql-${VERSION}
+  chmod u+x ./configure
 
-	DEVROOT=$XCODE/Platforms/iPhoneOS.platform/Developer
-	SDKROOT=$DEVROOT/SDKs/iPhoneOS${IOS}.sdk
+  DEVROOT=$XCODE/Platforms/iPhoneOS.platform/Developer
+  SDKROOT=$DEVROOT/SDKs/iPhoneOS${IOS}.sdk
 
     echo "\n\n--> iOS arm64 libpq Compilation"
 
-	./configure --host=arm-apple-darwin --without-readline --with-openssl \
-	  CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CXX="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
-	  CFLAGS="$CPPFLAGS -arch arm64 -pipe -no-cpp-precomp" \
-	  CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-	  LD="$DEVROOT/usr/bin/ld -L$PREFIX/arm64/lib" PG_SYSROOT="$SDKROOT"
-	make -C src/interfaces/libpq
-	echo "--> XYX"
-	echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-	cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
+  ./configure --host=arm-apple-darwin --without-readline --with-openssl \
+    CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CXX="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
+    CFLAGS="$CPPFLAGS -arch arm64 -pipe -no-cpp-precomp" \
+    CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
+    LD="$DEVROOT/usr/bin/ld -L$PREFIX/arm64/lib" PG_SYSROOT="$SDKROOT"
+  make -C src/interfaces/libpq
+  echo "--> XYX"
+  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
+  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
     # what about the header files? Which ones should we copy?
 
     echo "\n\n--> XX iOS arm64 libpq Compilation"
 
-	cd ..
-	rm -R postgresql-${VERSION}
+  cd ..
+  rm -R postgresql-${VERSION}
 
 fi;
 
@@ -752,32 +785,32 @@ target=ios-arm64e
 if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}"; then
 
     tar -zxf "postgresql-${VERSION}.tar.gz"
-	cd postgresql-${VERSION}
-	chmod u+x ./configure
+  cd postgresql-${VERSION}
+  chmod u+x ./configure
 
-	DEVROOT=$XCODE/Platforms/iPhoneOS.platform/Developer
-	SDKROOT=$DEVROOT/SDKs/iPhoneOS${IOS}.sdk
+  DEVROOT=$XCODE/Platforms/iPhoneOS.platform/Developer
+  SDKROOT=$DEVROOT/SDKs/iPhoneOS${IOS}.sdk
 
     echo "\n\n--> iOS arm64e libpq Compilation"
 
-	./configure --host=arm-apple-darwin --without-readline --with-openssl \
-	  CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CXX="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
-	  CFLAGS="$CPPFLAGS -arch arm64e -pipe -no-cpp-precomp" \
-	  CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-	  LD="$DEVROOT/usr/bin/ld -L$PREFIX/arm64/lib" PG_SYSROOT="$SDKROOT"
-	make -C src/interfaces/libpq
-	echo "--> XYX"
-	echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-	cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
+  ./configure --host=arm-apple-darwin --without-readline --with-openssl \
+    CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CXX="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
+    CFLAGS="$CPPFLAGS -arch arm64e -pipe -no-cpp-precomp" \
+    CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
+    LD="$DEVROOT/usr/bin/ld -L$PREFIX/arm64/lib" PG_SYSROOT="$SDKROOT"
+  make -C src/interfaces/libpq
+  echo "--> XYX"
+  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
+  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
     # what about the header files? Which ones should we copy?
 
     echo "\n\n--> XX iOS arm64e libpq Compilation"
 
-	cd ..
-	rm -R postgresql-${VERSION}
+  cd ..
+  rm -R postgresql-${VERSION}
 
 fi;
 
@@ -791,32 +824,32 @@ target=simulator_arm64
 if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}"; then
 
     tar -zxf "postgresql-${VERSION}.tar.gz"
-	cd postgresql-${VERSION}
-	chmod u+x ./configure
+  cd postgresql-${VERSION}
+  chmod u+x ./configure
 
     DEVROOT=$XCODE/Platforms/iPhoneSimulator.platform/Developer
     SDKROOT=$DEVROOT/SDKs/iPhoneSimulator${IOS}.sdk
 
     echo "\n\n--> Simulator arm64 libpq Compilation"
 
-	./configure --host=arm-apple-darwin --without-readline --with-openssl \
-	  CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CXX="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
-	  CFLAGS="$CPPFLAGS -arch arm64 -pipe -no-cpp-precomp" \
-	  CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-	  LD="$DEVROOT/usr/bin/ld -L$PREFIX/$target/lib" PG_SYSROOT="$SDKROOT"
-	make -C src/interfaces/libpq
-	echo "--> XYX"
-	echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-	cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
+  ./configure --host=arm-apple-darwin --without-readline --with-openssl \
+    CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CXX="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
+    CFLAGS="$CPPFLAGS -arch arm64 -pipe -no-cpp-precomp" \
+    CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
+    LD="$DEVROOT/usr/bin/ld -L$PREFIX/$target/lib" PG_SYSROOT="$SDKROOT"
+  make -C src/interfaces/libpq
+  echo "--> XYX"
+  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
+  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
     # what about the header files? Which ones should we copy?
 
     echo "\n\n--> XX Simulator arm64 libpq Compilation"
 
-	cd ..
-	rm -R postgresql-${VERSION}
+  cd ..
+  rm -R postgresql-${VERSION}
 
 fi;
 
@@ -829,32 +862,32 @@ target=simulator_arm64e
 if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}"; then
 
     tar -zxf "postgresql-${VERSION}.tar.gz"
-	cd postgresql-${VERSION}
-	chmod u+x ./configure
+  cd postgresql-${VERSION}
+  chmod u+x ./configure
 
     DEVROOT=$XCODE/Platforms/iPhoneSimulator.platform/Developer
     SDKROOT=$DEVROOT/SDKs/iPhoneSimulator${IOS}.sdk
 
     echo "\n\n--> Simulator arm64e libpq Compilation"
 
-	./configure --host=arm-apple-darwin --without-readline --with-openssl \
-	  CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CXX="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
-	  CFLAGS="$CPPFLAGS -arch arm64e -pipe -no-cpp-precomp" \
-	  CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-	  LD="$DEVROOT/usr/bin/ld -L$PREFIX/$target/lib" PG_SYSROOT="$SDKROOT"
-	make -C src/interfaces/libpq
-	echo "--> XYX"
-	echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-	cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
+  ./configure --host=arm-apple-darwin --without-readline --with-openssl \
+    CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CXX="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
+    CFLAGS="$CPPFLAGS -arch arm64e -pipe -no-cpp-precomp" \
+    CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
+    LD="$DEVROOT/usr/bin/ld -L$PREFIX/$target/lib" PG_SYSROOT="$SDKROOT"
+  make -C src/interfaces/libpq
+  echo "--> XYX"
+  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
+  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
     # what about the header files? Which ones should we copy?
 
     echo "\n\n--> XX Simulator arm64e libpq Compilation"
 
-	cd ..
-	rm -R postgresql-${VERSION}
+  cd ..
+  rm -R postgresql-${VERSION}
 
 fi;
 
@@ -867,35 +900,35 @@ target=simulator_x86_64
 if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}"; then
 
     tar -zxf "postgresql-${VERSION}.tar.gz"
-	cd postgresql-${VERSION}
-	chmod u+x ./configure
+  cd postgresql-${VERSION}
+  chmod u+x ./configure
 
     DEVROOT=$XCODE/Platforms/iPhoneSimulator.platform/Developer
     SDKROOT=$DEVROOT/SDKs/iPhoneSimulator${IOS}.sdk
 
     echo "\n\n--> Simulator x86_64 libpq Compilation"
 
-	./configure --host=x86_64-apple-darwin --without-readline --with-openssl \
-	  CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CXX="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
-	  CFLAGS="$CPPFLAGS -arch x86_64 -pipe -no-cpp-precomp" \
-	  CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-	  LD="$DEVROOT/usr/bin/ld -L$PREFIX/$target/lib" PG_SYSROOT="$SDKROOT"
-	make -C src/interfaces/libpq
-	echo "--> XYX"
-	echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-	ls src/interfaces/libpq
-	find ./|grep libpq.a
-	cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
-	cp src/interfaces/libpq/libpq.a /tmp
+  ./configure --host=x86_64-apple-darwin --without-readline --with-openssl \
+    CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CXX="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
+    CFLAGS="$CPPFLAGS -arch x86_64 -pipe -no-cpp-precomp" \
+    CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
+    LD="$DEVROOT/usr/bin/ld -L$PREFIX/$target/lib" PG_SYSROOT="$SDKROOT"
+  make -C src/interfaces/libpq
+  echo "--> XYX"
+  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
+  ls src/interfaces/libpq
+  find ./|grep libpq.a
+  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
+  cp src/interfaces/libpq/libpq.a /tmp
 
     # what about the header files? Which ones should we copy?
 
     echo "\n\n--> XX Simulator x86_64 libpq Compilation"
 
-	cd ..
-	rm -R postgresql-${VERSION}
+  cd ..
+  rm -R postgresql-${VERSION}
 
 fi;
 
@@ -907,32 +940,32 @@ target=simulator_x86_64h
 if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}"; then
 
     tar -zxf "postgresql-${VERSION}.tar.gz"
-	cd postgresql-${VERSION}
-	chmod u+x ./configure
+  cd postgresql-${VERSION}
+  chmod u+x ./configure
 
     DEVROOT=$XCODE/Platforms/iPhoneSimulator.platform/Developer
     SDKROOT=$DEVROOT/SDKs/iPhoneSimulator${IOS}.sdk
 
     echo "\n\n--> Simulator x86_64h libpq Compilation"
 
-	./configure --host=x86_64-apple-darwin --without-readline --with-openssl \
-	  CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CXX="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-	  CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
-	  CFLAGS="$CPPFLAGS -arch x86_64h -pipe -no-cpp-precomp" \
-	  CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-	  LD="$DEVROOT/usr/bin/ld -L$PREFIX/$target/lib" PG_SYSROOT="$SDKROOT"
-	make -C src/interfaces/libpq
-	echo "--> XYX"
-	echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-	cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
+  ./configure --host=x86_64-apple-darwin --without-readline --with-openssl \
+    CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CXX="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
+    CFLAGS="$CPPFLAGS -arch x86_64h -pipe -no-cpp-precomp" \
+    CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
+    LD="$DEVROOT/usr/bin/ld -L$PREFIX/$target/lib" PG_SYSROOT="$SDKROOT"
+  make -C src/interfaces/libpq
+  echo "--> XYX"
+  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
+  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
     # what about the header files? Which ones should we copy?
 
     echo "\n\n--> XX Simulator x86_64h libpq Compilation"
 
-	cd ..
-	rm -R postgresql-${VERSION}
+  cd ..
+  rm -R postgresql-${VERSION}
 
 fi;
 
