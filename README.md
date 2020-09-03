@@ -1,15 +1,17 @@
 # libpq on iOS
-A script to compile libpq for iOS 13.2
+A script to compile libpq for iOS 13.7
 
 Instructions:
 1. Clone:
 ```
-git clone https://github.com/workflowproducts/libpq-ios
-cd libpq-ios
+git clone https://github.com/build-xcframeworks/libpq
+cd libpq
 ```
 2. Build:
 ```
-./libpq-ios.sh
+bash libpq.sh
 ```
 
-The resulting library (`postgresql-12.2/libpq.a`) will run natively on iOS 13.2, and there is some commented, and untested, code for the simulator as well.
+The resulting directory "output" will contain three XCFrameworks: libssl.xcframework, libcrypto.xcframework and libpq.xcframework.
+
+libpq-test includes a test project to confirm the frameworks working well.
