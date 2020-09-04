@@ -83,7 +83,7 @@ then
 fi
 
 # download postgres
-if [ ! -e "postgresql-$VERSION" ]
+if [ ! -e "postgresql-$VERSION.tar.gz" ]
 then
     curl -OL "https://ftp.postgresql.org/pub/source/v${VERSION}/postgresql-${VERSION}.tar.gz"
 fi
@@ -102,6 +102,13 @@ mkdir -p $LIBPQPREFIX
 mkdir -p $LIBPQOUTPUT
 mkdir -p $XCFRAMEWORKS
 mkdir -p $TESTPROJECT
+
+
+echo "Let's output all variables for the sake of the CI"
+echo "---"
+( set -o posix ; set )
+echo "---"
+sleep 30
 
 for target in "${libressl_build_targets[@]}"
 do
