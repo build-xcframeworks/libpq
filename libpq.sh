@@ -29,7 +29,8 @@ declare -a appleSiliconTargets=("simulator_arm64" "simulator_x86_64" "catalyst_x
 if [ -z "$libressl_build_targets" ]
 then
   #declare -a libressl_build_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
-  declare -a libressl_build_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
+  declare -a libressl_build_targets=("")
+  #declare -a libressl_build_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
   #declare -a libressl_build_targets=$all_targets
 fi
 
@@ -41,8 +42,7 @@ fi
 
 if [ -z "$libpq_build_targets" ]
 then
-  # TODO: catalyst_x86_64 and macos_x86_64 are out of order at the moment
-  declare -a libpq_build_targets=("simulator_x86_64" "ios-arm64e")
+  declare -a libpq_build_targets=("simulator_x86_64" "ios-arm64e" "catalyst_x86_64" "macos_x86_64")
   #declare -a libpq_build_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
   #declare -a libpq_build_targets=$all_targets
 fi
@@ -50,7 +50,7 @@ fi
 if [ -z "$libpq_link_targets" ]
 then
   #declare -a libpq_link_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
-  declare -a libpq_link_targets=("simulator_x86_64" "ios-arm64e")
+  declare -a libpq_link_targets=("simulator_x86_64" "ios-arm64e" "catalyst_x86_64" "macos_x86_64")
   #declare -a libpq_link_targets=$libpq_build_targets
 fi
 
@@ -108,7 +108,7 @@ echo "Let's output all variables for the sake of the CI"
 echo "---"
 ( set -o posix ; set )
 echo "---"
-sleep 30
+#sleep 30
 
 for target in "${libressl_build_targets[@]}"
 do
@@ -182,7 +182,7 @@ target=simulator_x86_64h
 if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]}"; then
 
 
-  echo "\n\n--> iOS Simulator x86_64h libssl Compilation"
+  echo -e "\n\n--> iOS Simulator x86_64h libssl Compilation"
   
   DEVROOT=$XCODE/Platforms/iPhoneSimulator.platform/Developer
   SDKROOT=$DEVROOT/SDKs/iPhoneSimulator${IOS}.sdk
@@ -207,10 +207,15 @@ fi;
 target=simulator_x86_64
 if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]}"; then
   
-  echo "\n\n--> iOS Simulator x86_64 libssl Compilation"
+  echo -e "\n\n--> iOS Simulator x86_64 libssl Compilation"
 
   DEVROOT=$XCODE/Platforms/iPhoneSimulator.platform/Developer
   SDKROOT=$DEVROOT/SDKs/iPhoneSimulator${IOS}.sdk
+
+  echo "prefix: $PREFIX/$target"
+  echo "SDKROOT: $SDKROOT"
+  echo "CPPFLAGS: $CPPFLAGS"
+  echo "IOS: $IOS"
 
   ./configure --host=x86_64-apple-darwin --prefix="$PREFIX/$target" \
     CC="/usr/bin/clang" \
@@ -220,7 +225,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]
     LD=$DEVROOT/usr/bin/ld
 
   makeLibreSSL
-  echo "\n\n--> XX iOS Simulator x86_64 libssl Compilation"
+  echo -echo "\n\n--> XX iOS Simulator x86_64 libssl Compilation"
   moveLibreSSLOutputInPlace $target $OUTPUT
 
 fi;
@@ -390,11 +395,11 @@ if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]
   SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
 
   ./configure --prefix="$PREFIX/$target" \
-    CC="/usr/bin/clang -isysroot $SDKROOT" \
+    CC="/usr/bin/clang -target x86_64-apple-darwin -isysroot $SDKROOT" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/" \
     CFLAGS="$CPPFLAGS -arch x86_64 -pipe -no-cpp-precomp" \
     CPP="/usr/bin/cpp $CPPFLAGS" \
-    LD="/usr/bin/ld"
+    LD="/usr/bin/clang -target x86_64-apple-darwin"
 
   makeLibreSSL
   echo "\n\n--> XX macOS x86_64 libssl Compilation"
@@ -518,7 +523,6 @@ cd ..
 ##  macOS Catalyst x86_64 libpq Compilation
 #############################################
 
-#TODO: Broken
 target=catalyst_x86_64
 if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}"; then
 
@@ -532,13 +536,13 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
     echo "\n\n--> macOS Catalyst x86_64 libpq Compilation"
 
   ./configure --without-readline --with-openssl \
-    CC="/usr/bin/clang -target x86_64-apple-ios${IOS}-macabi -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-    CXX="/usr/bin/clang -target x86_64-apple-ios${IOS}-macabi -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CC="/usr/bin/clang -target x86_64-apple-ios${IOS}-macabi -isysroot $SDKROOT " \
+    CXX="/usr/bin/clang -target x86_64-apple-ios${IOS}-macabi -isysroot $SDKROOT " \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
-    CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
+    CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp -L$PREFIX/$target/lib" \
     CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__x86_64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-    LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
+    LD="/usr/bin/ld -L$PREFIX/$target/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq V=1
   echo "--> XYX"
   echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
@@ -615,7 +619,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
     CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-    LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
+    LD="/usr/bin/ld -L$PREFIX/$target/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq V=1
   echo "--> XYX"
   echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
@@ -654,7 +658,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
     CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-    LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
+    LD="/usr/bin/ld -L$PREFIX/$target/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq V=1
   echo "--> XYX"
   echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
@@ -669,7 +673,6 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
 
 fi;
 
-# TODO: This one isn't working - something about linking with unknown file format
 ####################################
 ##  macOS x86_64 libpq Compilation
 ####################################
@@ -687,13 +690,13 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
     echo "\n\n--> macOS x86_64 libpq Compilation"
 
   ./configure --without-readline --with-openssl \
-    CC="/usr/bin/clang -target x86_64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-    CXX="/usr/bin/clang -target x86_64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CC="/usr/bin/clang -target x86_64-apple-darwin -isysroot $SDKROOT" \
+    CXX="/usr/bin/clang -target x86_64-apple-darwin -isysroot $SDKROOT" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
-    CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
+    CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp -L$PREFIX/$target/lib" \
     CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__x86_64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-    LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
+    LD="/usr/bin/clang -target x86_64-apple-darwin -L$PREFIX/$target/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq V=1
   echo "--> XYX"
   echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
@@ -732,7 +735,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
     CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__x86_64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-    LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
+    LD="/usr/bin/ld -L$PREFIX/$target/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq V=1
   echo "--> XYX"
   echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
