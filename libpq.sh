@@ -2,6 +2,15 @@
 
 # edit these version numbers to suit your needs, or define them before running the script
 
+echo "LIBRESSL_BUILD_TARGETS environment variable can be set as a string split by ':' as you would a PATH variable. Ditto LIBRESSL_LINK_TARGETS, LIBPQ_BUILD_TARGETS and LIBPQ_LINK_TARGETS"
+# example: 
+#   export LIBRESSL_BUILD_TARGETS="simulator_x86_64:catalyst_x86_64:macos_x86_64:ios-arm64e"
+
+IFS=':' read -r -a libressl_build_targets <<< "$LIBRESSL_BUILD_TARGETS"
+IFS=':' read -r -a libressl_link_targets <<< "$LIBRESSL_LINK_TARGETS"
+IFS=':' read -r -a libpq_build_targets <<< "$LIBPQ_BUILD_TARGETS"
+IFS=':' read -r -a libpq_link_targets <<< "$LIBPQ_LINK_TARGETS"
+
 if [ -z "$VERSION" ]
 then
   VERSION=11.7 #12.2
@@ -28,30 +37,22 @@ declare -a appleSiliconTargets=("simulator_arm64" "simulator_x86_64" "catalyst_x
 
 if [ -z "$libressl_build_targets" ]
 then
-  #declare -a libressl_build_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
-  declare -a libressl_build_targets=("")
-  #declare -a libressl_build_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
-  #declare -a libressl_build_targets=$all_targets
+  declare -a libressl_build_targets=$all_targets
 fi
 
 if [ -z "$libressl_link_targets" ]
 then
-  declare -a libressl_link_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
-  #declare -a libressl_link_targets=$libressl_build_targets
+  declare -a libressl_link_targets=$libressl_build_targets
 fi
 
 if [ -z "$libpq_build_targets" ]
 then
-  declare -a libpq_build_targets=("simulator_x86_64" "ios-arm64e" "catalyst_x86_64" "macos_x86_64")
-  #declare -a libpq_build_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
-  #declare -a libpq_build_targets=$all_targets
+  declare -a libpq_build_targets=$all_targets
 fi
 
 if [ -z "$libpq_link_targets" ]
 then
-  #declare -a libpq_link_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64e")
-  declare -a libpq_link_targets=("simulator_x86_64" "ios-arm64e" "catalyst_x86_64" "macos_x86_64")
-  #declare -a libpq_link_targets=$libpq_build_targets
+  declare -a libpq_link_targets=$libpq_build_targets
 fi
 
 
@@ -182,7 +183,7 @@ target=simulator_x86_64h
 if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]}"; then
 
 
-  echo -e "\n\n--> iOS Simulator x86_64h libssl Compilation"
+  printf "\n\n--> iOS Simulator x86_64h libssl Compilation"
   
   DEVROOT=$XCODE/Platforms/iPhoneSimulator.platform/Developer
   SDKROOT=$DEVROOT/SDKs/iPhoneSimulator${IOS}.sdk
@@ -195,7 +196,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]
     LD=$DEVROOT/usr/bin/ld
 
   makeLibreSSL
-  echo "\n\n--> XX iOS Simulator x86_64h libssl Compilation"
+  printf "\n\n--> XX iOS Simulator x86_64h libssl Compilation"
   moveLibreSSLOutputInPlace $target $OUTPUT
 
 fi;
@@ -207,7 +208,7 @@ fi;
 target=simulator_x86_64
 if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]}"; then
   
-  echo -e "\n\n--> iOS Simulator x86_64 libssl Compilation"
+  printf "\n\n--> iOS Simulator x86_64 libssl Compilation"
 
   DEVROOT=$XCODE/Platforms/iPhoneSimulator.platform/Developer
   SDKROOT=$DEVROOT/SDKs/iPhoneSimulator${IOS}.sdk
@@ -225,7 +226,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]
     LD=$DEVROOT/usr/bin/ld
 
   makeLibreSSL
-  echo -echo "\n\n--> XX iOS Simulator x86_64 libssl Compilation"
+  echo -printf "\n\n--> XX iOS Simulator x86_64 libssl Compilation"
   moveLibreSSLOutputInPlace $target $OUTPUT
 
 fi;
@@ -237,7 +238,7 @@ fi;
 target=simulator_arm64e
 if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]}"; then
   
-  echo "\n\n--> iOS Simulator arm64e libssl Compilation"
+  printf "\n\n--> iOS Simulator arm64e libssl Compilation"
 
   DEVROOT=$XCODE/Platforms/iPhoneSimulator.platform/Developer
   SDKROOT=$DEVROOT/SDKs/iPhoneSimulator${IOS}.sdk
@@ -250,7 +251,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]
     LD=$DEVROOT/usr/bin/ld
 
   makeLibreSSL
-  echo "\n\n--> XX iOS Simulator arm64e libssl Compilation"
+  printf "\n\n--> XX iOS Simulator arm64e libssl Compilation"
   moveLibreSSLOutputInPlace $target $OUTPUT
 
 fi;
@@ -262,7 +263,7 @@ fi;
 target=simulator_arm64
 if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]}"; then
   
-  echo "\n\n--> iOS Simulator arm64 libssl Compilation"
+  printf "\n\n--> iOS Simulator arm64 libssl Compilation"
 
   DEVROOT=$XCODE/Platforms/iPhoneSimulator.platform/Developer
   SDKROOT=$DEVROOT/SDKs/iPhoneSimulator${IOS}.sdk
@@ -275,7 +276,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]
     LD=$DEVROOT/usr/bin/ld
 
   makeLibreSSL
-  echo "\n\n--> XX iOS Simulator arm64 libssl Compilation"
+  printf "\n\n--> XX iOS Simulator arm64 libssl Compilation"
   moveLibreSSLOutputInPlace $target $OUTPUT
   
 fi;
@@ -288,7 +289,7 @@ fi;
 target=ios-arm64
 if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]}"; then
   
-  echo "\n\n--> iOS arm64 libssl Compilation"
+  printf "\n\n--> iOS arm64 libssl Compilation"
 
   DEVROOT=$XCODE/Platforms/iPhoneOS.platform/Developer
   SDKROOT=$DEVROOT/SDKs/iPhoneOS${IOS}.sdk
@@ -301,7 +302,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]
     LD=$DEVROOT/usr/bin/ld
 
   makeLibreSSL
-  echo "\n\n--> XX iOS arm64 libssl Compilation"
+  printf "\n\n--> XX iOS arm64 libssl Compilation"
   moveLibreSSLOutputInPlace $target $OUTPUT
 
 fi;
@@ -313,7 +314,7 @@ fi;
 target=ios-arm64e
 if elementIn "$target" "${libressl_build_targets[@]}"; then
   
-  echo "\n\n--> iOS arm64e libssl Compilation"
+  printf "\n\n--> iOS arm64e libssl Compilation"
 
   DEVROOT=$XCODE/Platforms/iPhoneOS.platform/Developer
   SDKROOT=$DEVROOT/SDKs/iPhoneOS${IOS}.sdk
@@ -326,7 +327,7 @@ if elementIn "$target" "${libressl_build_targets[@]}"; then
     LD=$DEVROOT/usr/bin/ld
 
   makeLibreSSL
-  echo "\n\n--> XX iOS arm64e libssl Compilation"
+  printf "\n\n--> XX iOS arm64e libssl Compilation"
   moveLibreSSLOutputInPlace $target $OUTPUT
 
 fi;
@@ -338,7 +339,7 @@ fi;
 target=catalyst_x86_64
 if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]}"; then
   
-  echo "\n\n--> macOS Catalyst x86_64 libssl Compilation"
+  printf "\n\n--> macOS Catalyst x86_64 libssl Compilation"
 
   DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
   SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
@@ -351,7 +352,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]
     LD="/usr/bin/ld"
 
   makeLibreSSL
-  echo "\n\n--> XX macOS Catalyst x86_64 libssl Compilation"
+  printf "\n\n--> XX macOS Catalyst x86_64 libssl Compilation"
   moveLibreSSLOutputInPlace $target $OUTPUT
 
 fi;
@@ -363,7 +364,7 @@ fi;
 target=catalyst_arm64
 if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]}"; then
   
-  echo "\n\n--> macOS Catalyst arm64e libssl Compilation"
+  printf "\n\n--> macOS Catalyst arm64e libssl Compilation"
 
   DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
   SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
@@ -376,7 +377,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]
     LD="/usr/bin/ld"
 
   makeLibreSSL
-  echo "\n\n--> XX macOS Catalyst arm64e libssl Compilation"
+  printf "\n\n--> XX macOS Catalyst arm64e libssl Compilation"
   moveLibreSSLOutputInPlace $target $OUTPUT
 
 fi;
@@ -389,7 +390,7 @@ fi;
 target=macos_x86_64
 if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]}"; then
   
-  echo "\n\n--> macOS x86_64 libssl Compilation"
+  printf "\n\n--> macOS x86_64 libssl Compilation"
 
   DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
   SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
@@ -402,7 +403,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]
     LD="/usr/bin/clang -target x86_64-apple-darwin"
 
   makeLibreSSL
-  echo "\n\n--> XX macOS x86_64 libssl Compilation"
+  printf "\n\n--> XX macOS x86_64 libssl Compilation"
   moveLibreSSLOutputInPlace $target $OUTPUT
 
 fi;
@@ -415,7 +416,7 @@ fi;
 target=macos_x86_64h
 if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]}"; then
   
-  echo "\n\n--> macOS x86_64h libssl Compilation"
+  printf "\n\n--> macOS x86_64h libssl Compilation"
 
   DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
   SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
@@ -428,7 +429,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]
     LD="/usr/bin/ld"
 
   makeLibreSSL
-  echo "\n\n--> XX macOS x86_64h libssl Compilation"
+  printf "\n\n--> XX macOS x86_64h libssl Compilation"
   moveLibreSSLOutputInPlace $target $OUTPUT
 
 fi;
@@ -440,7 +441,7 @@ fi;
 target=macos_arm64
 if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]}"; then
   
-  echo "\n\n--> macOS arm64 libssl Compilation"
+  printf "\n\n--> macOS arm64 libssl Compilation"
 
   DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
   SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
@@ -453,7 +454,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]
     LD="/usr/bin/ld"
 
   makeLibreSSL
-  echo "\n\n--> XX macOS arm64 libssl Compilation"
+  printf "\n\n--> XX macOS arm64 libssl Compilation"
   moveLibreSSLOutputInPlace $target $OUTPUT
 
 fi;
@@ -466,20 +467,20 @@ fi;
 target=macos_arm64e
 if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]}"; then
   
-  echo "\n\n--> macOS arm64e libssl Compilation"
+  printf "\n\n--> macOS arm64e libssl Compilation"
 
   DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
   SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
 
   ./configure --prefix="$PREFIX/$target" \
-    CC="/usr/bin/clang -isysroot $SDKROOT" \
+    CC="/usr/bin/clang -target arm64-apple-darwin -isysroot $SDKROOT" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/" \
     CFLAGS="$CPPFLAGS -arch arm64e -pipe -no-cpp-precomp" \
     CPP="/usr/bin/cpp $CPPFLAGS" \
-    LD="/usr/bin/ld"
+    LD="/usr/bin/ld -target arm64-apple-darwin"
 
   makeLibreSSL
-  echo "\n\n--> XX macOS arm64e libssl Compilation"
+  printf "\n\n--> XX macOS arm64e libssl Compilation"
   moveLibreSSLOutputInPlace $target $OUTPUT
 
 fi;
@@ -498,7 +499,7 @@ do
 done
 #XCFRAMEWORK_CMD="$XCFRAMEWORK_CMD -output $XCFRAMEWORKS/libressl.xcframework"
 XCFRAMEWORK_CMD="$XCFRAMEWORK_CMD -output $XCFRAMEWORKS/libcrypto.xcframework"
-echo "\n\n--> XCFramework"
+printf "\n\n--> XCFramework"
 echo $XCFRAMEWORK_CMD
 rm -R $XCFRAMEWORKS
 eval $XCFRAMEWORK_CMD
@@ -511,7 +512,7 @@ do
   XCFRAMEWORK_CMD="$XCFRAMEWORK_CMD -headers $OUTPUT/$target/include"
 done
 XCFRAMEWORK_CMD="$XCFRAMEWORK_CMD -output $XCFRAMEWORKS/libssl.xcframework"
-echo "\n\n--> XCFramework"
+printf "\n\n--> XCFramework"
 echo $XCFRAMEWORK_CMD
 eval $XCFRAMEWORK_CMD
 
@@ -533,7 +534,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
   DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
   SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
 
-    echo "\n\n--> macOS Catalyst x86_64 libpq Compilation"
+    printf "\n\n--> macOS Catalyst x86_64 libpq Compilation"
 
   ./configure --without-readline --with-openssl \
     CC="/usr/bin/clang -target x86_64-apple-ios${IOS}-macabi -isysroot $SDKROOT " \
@@ -550,7 +551,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
 
     # what about the header files? Which ones should we copy?
 
-    echo "\n\n--> XX macOS Catalyst x86_64 libpq Compilation"
+    printf "\n\n--> XX macOS Catalyst x86_64 libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -571,7 +572,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
   DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
   SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
 
-    echo "\n\n--> macOS Catalyst arm64 libpq Compilation"
+    printf "\n\n--> macOS Catalyst arm64 libpq Compilation"
 
   ./configure --without-readline --with-openssl \
     CC="/usr/bin/clang -target arm64-apple-ios${IOS}-macabi -isysroot $SDKROOT -L$PREFIX/$target/lib" \
@@ -588,7 +589,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
 
     # what about the header files? Which ones should we copy?
 
-    echo "\n\n--> XX macOS Catalyst arm64 libpq Compilation"
+    printf "\n\n--> XX macOS Catalyst arm64 libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -610,7 +611,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
   DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
   SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
 
-    echo "\n\n--> macOS arm64 libpq Compilation"
+    printf "\n\n--> macOS arm64 libpq Compilation"
 
   ./configure --without-readline --with-openssl \
     CC="/usr/bin/clang -target arm64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
@@ -627,7 +628,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
 
     # what about the header files? Which ones should we copy?
 
-    echo "\n\n--> XX macOS arm64 libpq Compilation"
+    printf "\n\n--> XX macOS arm64 libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -642,23 +643,23 @@ fi;
 target=macos_arm64e
 if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}"; then
 
-    tar -zxf "postgresql-${VERSION}.tar.gz"
+  tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
   chmod u+x ./configure
 
   DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
   SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
 
-    echo "\n\n--> macOS arm64e libpq Compilation"
+    printf "\n\n--> macOS arm64e libpq Compilation"
 
   ./configure --without-readline --with-openssl \
-    CC="/usr/bin/clang -target arm64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-    CXX="/usr/bin/clang -target arm64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
+    CC="/usr/bin/clang -target arm64-apple-darwin -isysroot $SDKROOT" \
+    CXX="/usr/bin/clang -target arm64-apple-darwin -isysroot $SDKROOT" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
-    CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
+    CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp -L$PREFIX/$target/lib" \
     CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-    LD="/usr/bin/ld -L$PREFIX/$target/lib" PG_SYSROOT="$SDKROOT"
+    LD="/usr/bin/clang -target arm64-apple-darwin -L$PREFIX/$target/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq V=1
   echo "--> XYX"
   echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
@@ -666,7 +667,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
 
     # what about the header files? Which ones should we copy?
 
-    echo "\n\n--> XX macOS arm64e libpq Compilation"
+    printf "\n\n--> XX macOS arm64e libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -687,7 +688,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
   DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
   SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
 
-    echo "\n\n--> macOS x86_64 libpq Compilation"
+    printf "\n\n--> macOS x86_64 libpq Compilation"
 
   ./configure --without-readline --with-openssl \
     CC="/usr/bin/clang -target x86_64-apple-darwin -isysroot $SDKROOT" \
@@ -704,7 +705,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
 
     # what about the header files? Which ones should we copy?
 
-    echo "\n\n--> XX macOS x86_64 libpq Compilation"
+    printf "\n\n--> XX macOS x86_64 libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -726,7 +727,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
   DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
   SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
 
-    echo "\n\n--> macOS x86_64h libpq Compilation"
+    printf "\n\n--> macOS x86_64h libpq Compilation"
 
   ./configure --without-readline --with-openssl \
     CC="/usr/bin/clang -target x86_64-apple -isysroot $SDKROOT -L$PREFIX/$target/lib" \
@@ -743,7 +744,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
 
     # what about the header files? Which ones should we copy?
 
-    echo "\n\n--> XX macOS x86_64h libpq Compilation"
+    printf "\n\n--> XX macOS x86_64h libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -764,7 +765,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
   DEVROOT=$XCODE/Platforms/iPhoneOS.platform/Developer
   SDKROOT=$DEVROOT/SDKs/iPhoneOS${IOS}.sdk
 
-    echo "\n\n--> iOS arm64 libpq Compilation"
+    printf "\n\n--> iOS arm64 libpq Compilation"
 
   ./configure --host=arm-apple-darwin --without-readline --with-openssl \
     CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
@@ -780,7 +781,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
 
     # what about the header files? Which ones should we copy?
 
-    echo "\n\n--> XX iOS arm64 libpq Compilation"
+    printf "\n\n--> XX iOS arm64 libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -801,7 +802,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
   DEVROOT=$XCODE/Platforms/iPhoneOS.platform/Developer
   SDKROOT=$DEVROOT/SDKs/iPhoneOS${IOS}.sdk
 
-    echo "\n\n--> iOS arm64e libpq Compilation"
+    printf "\n\n--> iOS arm64e libpq Compilation"
 
   ./configure --host=arm-apple-darwin --without-readline --with-openssl \
     CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
@@ -817,7 +818,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
 
     # what about the header files? Which ones should we copy?
 
-    echo "\n\n--> XX iOS arm64e libpq Compilation"
+    printf "\n\n--> XX iOS arm64e libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -840,7 +841,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
     DEVROOT=$XCODE/Platforms/iPhoneSimulator.platform/Developer
     SDKROOT=$DEVROOT/SDKs/iPhoneSimulator${IOS}.sdk
 
-    echo "\n\n--> Simulator arm64 libpq Compilation"
+    printf "\n\n--> Simulator arm64 libpq Compilation"
 
   ./configure --host=arm-apple-darwin --without-readline --with-openssl \
     CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
@@ -856,7 +857,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
 
     # what about the header files? Which ones should we copy?
 
-    echo "\n\n--> XX Simulator arm64 libpq Compilation"
+    printf "\n\n--> XX Simulator arm64 libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -878,7 +879,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
     DEVROOT=$XCODE/Platforms/iPhoneSimulator.platform/Developer
     SDKROOT=$DEVROOT/SDKs/iPhoneSimulator${IOS}.sdk
 
-    echo "\n\n--> Simulator arm64e libpq Compilation"
+    printf "\n\n--> Simulator arm64e libpq Compilation"
 
   ./configure --host=arm-apple-darwin --without-readline --with-openssl \
     CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
@@ -894,7 +895,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
 
     # what about the header files? Which ones should we copy?
 
-    echo "\n\n--> XX Simulator arm64e libpq Compilation"
+    printf "\n\n--> XX Simulator arm64e libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -916,7 +917,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
     DEVROOT=$XCODE/Platforms/iPhoneSimulator.platform/Developer
     SDKROOT=$DEVROOT/SDKs/iPhoneSimulator${IOS}.sdk
 
-    echo "\n\n--> Simulator x86_64 libpq Compilation"
+    printf "\n\n--> Simulator x86_64 libpq Compilation"
 
   ./configure --host=x86_64-apple-darwin --without-readline --with-openssl \
     CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
@@ -935,7 +936,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
 
     # what about the header files? Which ones should we copy?
 
-    echo "\n\n--> XX Simulator x86_64 libpq Compilation"
+    printf "\n\n--> XX Simulator x86_64 libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -956,7 +957,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
     DEVROOT=$XCODE/Platforms/iPhoneSimulator.platform/Developer
     SDKROOT=$DEVROOT/SDKs/iPhoneSimulator${IOS}.sdk
 
-    echo "\n\n--> Simulator x86_64h libpq Compilation"
+    printf "\n\n--> Simulator x86_64h libpq Compilation"
 
   ./configure --host=x86_64-apple-darwin --without-readline --with-openssl \
     CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
@@ -972,7 +973,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
 
     # what about the header files? Which ones should we copy?
 
-    echo "\n\n--> XX Simulator x86_64h libpq Compilation"
+    printf "\n\n--> XX Simulator x86_64h libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -990,7 +991,7 @@ do
   XCFRAMEWORK_CMD="$XCFRAMEWORK_CMD -headers $LIBPQOUTPUT/$target/include"
 done
 XCFRAMEWORK_CMD="$XCFRAMEWORK_CMD -output $XCFRAMEWORKS/libpq.xcframework"
-echo "\n\n--> XCFramework libpq"
+printf "\n\n--> XCFramework libpq"
 echo $XCFRAMEWORK_CMD
 eval $XCFRAMEWORK_CMD
 
