@@ -55,8 +55,6 @@ then
   declare -a libpq_link_targets=$libpq_build_targets
 fi
 
-
-
 set -e
 
 XCODE=`/usr/bin/xcode-select -p`
@@ -243,7 +241,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]
   DEVROOT=$XCODE/Platforms/iPhoneSimulator.platform/Developer
   SDKROOT=$DEVROOT/SDKs/iPhoneSimulator${IOS}.sdk
 
-  ./configure --host=arm-apple-darwin --prefix="$PREFIX/$target" \
+  ./configure --host=aarch64-apple-darwin --prefix="$PREFIX/$target" \
     CC="/usr/bin/clang" \
     CPPFLAGS="-I$SDKROOT/usr/include/" \
     CFLAGS="$CPPFLAGS -arch arm64e -miphoneos-version-min=${IOS} -pipe -no-cpp-precomp -isysroot $SDKROOT" \
@@ -268,7 +266,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]
   DEVROOT=$XCODE/Platforms/iPhoneSimulator.platform/Developer
   SDKROOT=$DEVROOT/SDKs/iPhoneSimulator${IOS}.sdk
 
-  ./configure --host=arm-apple-darwin --prefix="$PREFIX/$target" \
+  ./configure --host=aarch64-apple-darwin --prefix="$PREFIX/$target" \
     CC="/usr/bin/clang" \
     CPPFLAGS="-I$SDKROOT/usr/include/" \
     CFLAGS="$CPPFLAGS -arch arm64 -miphoneos-version-min=${IOS} -pipe -no-cpp-precomp -isysroot $SDKROOT" \
@@ -294,7 +292,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libressl_build_targets[@]
   DEVROOT=$XCODE/Platforms/iPhoneOS.platform/Developer
   SDKROOT=$DEVROOT/SDKs/iPhoneOS${IOS}.sdk
 
-  ./configure --host=arm-apple-darwin --prefix="$PREFIX/$target" \
+  ./configure --host=aarch64-apple-darwin --prefix="$PREFIX/$target" \
     CC="/usr/bin/clang -isysroot $SDKROOT" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/" \
     CFLAGS="$CPPFLAGS -arch arm64 -miphoneos-version-min=${IOS} -pipe -no-cpp-precomp" \
@@ -581,7 +579,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
     CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-    LD="/usr/bin/ld -L$PREFIX/simulator/lib" PG_SYSROOT="$SDKROOT"
+    LD="/usr/bin/ld -L$PREFIX/$target/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq V=1
   echo "--> XYX"
   echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
@@ -767,7 +765,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
 
     printf "\n\n--> iOS arm64 libpq Compilation"
 
-  ./configure --host=arm-apple-darwin --without-readline --with-openssl \
+  ./configure --host=aarch64-apple-darwin --without-readline --with-openssl \
     CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
     CXX="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
@@ -804,7 +802,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
 
     printf "\n\n--> iOS arm64e libpq Compilation"
 
-  ./configure --host=arm-apple-darwin --without-readline --with-openssl \
+  ./configure --host=aarch64-apple-darwin --without-readline --with-openssl \
     CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
     CXX="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
@@ -826,7 +824,8 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
 fi;
 
 
-# TODO: This one isn't working - something about linking with unknown file format
+# TODO: This one isn't working, even though I cannot see that libcrypto would be built for iOS
+# ld: building for iOS Simulator, but linking in dylib file (./build/libressl-build/simulator_arm64/lib/libcrypto.dylib) built for iOS
 ###########################################
 ##  iOS Simulator arm64 libpq Compilation
 ###########################################
@@ -842,12 +841,13 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
     SDKROOT=$DEVROOT/SDKs/iPhoneSimulator${IOS}.sdk
 
     printf "\n\n--> Simulator arm64 libpq Compilation"
+	echo "-L$PREFIX/$target/lib"
 
-  ./configure --host=arm-apple-darwin --without-readline --with-openssl \
-    CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-    CXX="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
-    CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
-    CFLAGS="$CPPFLAGS -arch arm64 -pipe -no-cpp-precomp" \
+  ./configure --host=aarch64-apple-darwin --without-readline --with-openssl \
+    CC="/usr/bin/clang -isysroot $SDKROOT" \
+    CXX="/usr/bin/clang -isysroot $SDKROOT" \
+    CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include -L$PREFIX/$target/lib" \
+    CFLAGS="$CPPFLAGS -arch arm64 -pipe -no-cpp-precomp -L$PREFIX/$target/lib" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="$DEVROOT/usr/bin/ld -L$PREFIX/$target/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq
@@ -881,7 +881,7 @@ if needsRebuilding "$target" && elementIn "$target" "${libpq_build_targets[@]}";
 
     printf "\n\n--> Simulator arm64e libpq Compilation"
 
-  ./configure --host=arm-apple-darwin --without-readline --with-openssl \
+  ./configure --host=aarch64-apple-darwin --without-readline --with-openssl \
     CC="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
     CXX="/usr/bin/clang -isysroot $SDKROOT -L$PREFIX/$target/lib" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$PREFIX/$target/include" \
