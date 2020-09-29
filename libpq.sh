@@ -52,17 +52,18 @@ set -e
 
 XCODE=`/usr/bin/xcode-select -p`
 
-# hard clean
-#rm -R libressl-?.?.? postgresql-??.? build Fat output
-
-# download LibreSSL
-# Download libressl
+# Download LibreSSL
 
 if [ ! -e "${LIBRESSL}.zip" ]
 then
   curl -iL --max-redirs 1 -o ${LIBRESSL}.zip https://github.com/build-xcframeworks/libressl/releases/download/${LIBRESSL}/${LIBRESSL}.zip
+fi
+
+if [ ! -d ${LIBRESSL} ]
+then
   unzip ${LIBRESSL}.zip
 fi
+
 
 # download postgres
 if [ ! -e "postgresql-$VERSION.tar.gz" ]
@@ -71,13 +72,13 @@ then
 fi
 
 # create a staging directory (we need this for include files later on)
-LIBPQPREFIX=$(pwd)/build/libpq-build  # this is where we build libpq
-LIBPQOUTPUT=$(pwd)/Fat/libpq          # after we build, we put libpqs outputs here
+PREFIX=$(pwd)/build/libpq-build  # this is where we build libpq
+OUTPUT=$(pwd)/Fat/libpq          # after we build, we put libpqs outputs here
 XCFRAMEWORKS=$(pwd)/output/           # this is where we produce the resulting XCFrameworks: libcrypto.xcframework, libssl.xcframework and libpq.xcframework
 TESTPROJECT=$(pwd)/libpq-test         # this is the test project where we ensure everything works correctly
 
-mkdir -p $LIBPQPREFIX
-mkdir -p $LIBPQOUTPUT
+mkdir -p $PREFIX
+mkdir -p $OUTPUT
 mkdir -p $XCFRAMEWORKS
 mkdir -p $TESTPROJECT
 
@@ -112,13 +113,12 @@ echo "Let's output all variables for the sake of the CI"
 echo "---"
 ( set -o posix ; set )
 echo "---"
-#sleep 30
 
 for target in "${build_targets[@]}"
 do
-  mkdir -p $LIBPQPREFIX/$target;
-  mkdir -p $LIBPQOUTPUT/$target/lib;
-  mkdir -p $LIBPQOUTPUT/$target/include;
+  mkdir -p $PREFIX/$target;
+  mkdir -p $OUTPUT/$target/lib;
+  mkdir -p $OUTPUT/$target/include;
 done
 
 
@@ -150,6 +150,17 @@ needsRebuilding() {
 
 }
 
+copyToOutput() {
+  local target=$1
+  local OUTPUT=$2
+  cp src/interfaces/libpq/libpq.a ${OUTPUT}/$target/lib
+  cp src/include/pg_config_ext.h ${OUTPUT}/$target/include
+  cp src/include/postgres_ext.h ${OUTPUT}/$target/include
+  cp src/interfaces/libpq/libpq-fe.h ${OUTPUT}/$target/include
+  cp src/include/pg_config.h ${OUTPUT}/$target/include
+
+}
+
 #############################################
 ##  macOS Catalyst x86_64 libpq Compilation
 #############################################
@@ -157,7 +168,7 @@ needsRebuilding() {
 target=catalyst_x86_64
 if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
-    tar -zxf "postgresql-${VERSION}.tar.gz"
+  tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
   chmod u+x ./configure
 
@@ -180,13 +191,10 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
     CPP="/usr/bin/clang -E -D__x86_64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq V=1
-  echo "--> XYX"
-  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
-    # what about the header files? Which ones should we copy?
+  copyToOutput $target ${OUTPUT}
 
-    printf "\n\n--> XX macOS Catalyst x86_64 libpq Compilation"
+  printf "\n\n--> XX macOS Catalyst x86_64 libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -200,7 +208,7 @@ fi;
 target=catalyst_arm64
 if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
-    tar -zxf "postgresql-${VERSION}.tar.gz"
+  tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
   chmod u+x ./configure
 
@@ -209,7 +217,7 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
   LIBRESSLROOT_RELATIVE=`pwd`/../libressl/macos
   LIBRESSLROOT=$(resolve_path ${LIBRESSLROOT_RELATIVE})
 
-    printf "\n\n--> macOS Catalyst arm64 libpq Compilation"
+  printf "\n\n--> macOS Catalyst arm64 libpq Compilation"
 
   ./configure --without-readline --with-openssl \
     CC="/usr/bin/clang -target arm64-apple-ios${IOS}-macabi -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
@@ -220,13 +228,10 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq V=1
-  echo "--> XYX"
-  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
-    # what about the header files? Which ones should we copy?
+  copyToOutput $target ${OUTPUT}
 
-    printf "\n\n--> XX macOS Catalyst arm64 libpq Compilation"
+  printf "\n\n--> XX macOS Catalyst arm64 libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -241,7 +246,7 @@ fi;
 target=macos_arm64
 if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
-    tar -zxf "postgresql-${VERSION}.tar.gz"
+  tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
   chmod u+x ./configure
 
@@ -250,7 +255,7 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
   LIBRESSLROOT_RELATIVE=`pwd`/../libressl/macos
   LIBRESSLROOT=$(resolve_path ${LIBRESSLROOT_RELATIVE})
 
-    printf "\n\n--> macOS arm64 libpq Compilation"
+  printf "\n\n--> macOS arm64 libpq Compilation"
 
   ./configure --without-readline --with-openssl \
     CC="/usr/bin/clang -target arm64-apple -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
@@ -261,13 +266,10 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq V=1
-  echo "--> XYX"
-  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
-    # what about the header files? Which ones should we copy?
+  copyToOutput $target ${OUTPUT}
 
-    printf "\n\n--> XX macOS arm64 libpq Compilation"
+  printf "\n\n--> XX macOS arm64 libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -291,7 +293,7 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
   LIBRESSLROOT_RELATIVE=`pwd`/../libressl/macos
   LIBRESSLROOT=$(resolve_path ${LIBRESSLROOT_RELATIVE})
 
-    printf "\n\n--> macOS arm64e libpq Compilation"
+  printf "\n\n--> macOS arm64e libpq Compilation"
 
   ./configure --without-readline --with-openssl \
     CC="/usr/bin/clang -target arm64-apple-darwin -isysroot $SDKROOT" \
@@ -302,13 +304,10 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="/usr/bin/clang -target arm64-apple-darwin -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq V=1
-  echo "--> XYX"
-  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
-    # what about the header files? Which ones should we copy?
+  copyToOutput $target ${OUTPUT}
 
-    printf "\n\n--> XX macOS arm64e libpq Compilation"
+  printf "\n\n--> XX macOS arm64e libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -322,7 +321,7 @@ fi;
 target=macos_x86_64
 if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
-    tar -zxf "postgresql-${VERSION}.tar.gz"
+  tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
   chmod u+x ./configure
 
@@ -342,13 +341,10 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
     CPP="/usr/bin/clang -E -D__x86_64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="/usr/bin/clang -target x86_64-apple-darwin -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq V=1
-  echo "--> XYX"
-  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
-    # what about the header files? Which ones should we copy?
+  copyToOutput $target ${OUTPUT}
 
-    printf "\n\n--> XX macOS x86_64 libpq Compilation"
+  printf "\n\n--> XX macOS x86_64 libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -363,7 +359,7 @@ fi;
 target=macos_x86_64h
 if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
-    tar -zxf "postgresql-${VERSION}.tar.gz"
+  tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
   chmod u+x ./configure
 
@@ -383,13 +379,10 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
     CPP="/usr/bin/clang -E -D__x86_64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq V=1
-  echo "--> XYX"
-  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
-    # what about the header files? Which ones should we copy?
+  copyToOutput $target ${OUTPUT}
 
-    printf "\n\n--> XX macOS x86_64h libpq Compilation"
+  printf "\n\n--> XX macOS x86_64h libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -403,7 +396,7 @@ fi;
 target=ios-arm64
 if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
-    tar -zxf "postgresql-${VERSION}.tar.gz"
+  tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
   chmod u+x ./configure
 
@@ -422,13 +415,10 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="$DEVROOT/usr/bin/ld -L$PREFIX/arm64/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq
-  echo "--> XYX"
-  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
-    # what about the header files? Which ones should we copy?
+  copyToOutput $target ${OUTPUT}
 
-    printf "\n\n--> XX iOS arm64 libpq Compilation"
+  printf "\n\n--> XX iOS arm64 libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -442,7 +432,7 @@ fi;
 target=ios-arm64e
 if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
-    tar -zxf "postgresql-${VERSION}.tar.gz"
+  tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
   chmod u+x ./configure
 
@@ -461,13 +451,10 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="$DEVROOT/usr/bin/ld -L$PREFIX/arm64/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq
-  echo "--> XYX"
-  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
-    # what about the header files? Which ones should we copy?
+  copyToOutput $target ${OUTPUT}
 
-    printf "\n\n--> XX iOS arm64e libpq Compilation"
+  printf "\n\n--> XX iOS arm64e libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -484,7 +471,7 @@ fi;
 target=simulator_arm64
 if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
-    tar -zxf "postgresql-${VERSION}.tar.gz"
+  tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
   chmod u+x ./configure
 
@@ -504,13 +491,10 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="$DEVROOT/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq
-  echo "--> XYX"
-  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
-    # what about the header files? Which ones should we copy?
+  copyToOutput $target ${OUTPUT}
 
-    printf "\n\n--> XX Simulator arm64 libpq Compilation"
+  printf "\n\n--> XX Simulator arm64 libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -525,7 +509,7 @@ fi;
 target=simulator_arm64e
 if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
-    tar -zxf "postgresql-${VERSION}.tar.gz"
+  tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
   chmod u+x ./configure
 
@@ -544,13 +528,10 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="$DEVROOT/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq
-  echo "--> XYX"
-  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
-    # what about the header files? Which ones should we copy?
+  copyToOutput $target ${OUTPUT}
 
-    printf "\n\n--> XX Simulator arm64e libpq Compilation"
+  printf "\n\n--> XX Simulator arm64e libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -565,7 +546,7 @@ fi;
 target=simulator_x86_64
 if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
-    tar -zxf "postgresql-${VERSION}.tar.gz"
+  tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
   chmod u+x ./configure
 
@@ -584,16 +565,10 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="$DEVROOT/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq
-  echo "--> XYX"
-  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-  ls src/interfaces/libpq
-  find ./|grep libpq.a
-  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
-  cp src/interfaces/libpq/libpq.a /tmp
 
-    # what about the header files? Which ones should we copy?
+  copyToOutput $target ${OUTPUT}
 
-    printf "\n\n--> XX Simulator x86_64 libpq Compilation"
+  printf "\n\n--> XX Simulator x86_64 libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -607,7 +582,7 @@ fi;
 target=simulator_x86_64h
 if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
-    tar -zxf "postgresql-${VERSION}.tar.gz"
+  tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
   chmod u+x ./configure
 
@@ -626,13 +601,10 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="$DEVROOT/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq
-  echo "--> XYX"
-  echo "cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib"
-  cp src/interfaces/libpq/libpq.a ${LIBPQOUTPUT}/$target/lib
 
-    # what about the header files? Which ones should we copy?
+  copyToOutput $target ${OUTPUT}
 
-    printf "\n\n--> XX Simulator x86_64h libpq Compilation"
+  printf "\n\n--> XX Simulator x86_64h libpq Compilation"
 
   cd ..
   rm -R postgresql-${VERSION}
@@ -646,8 +618,8 @@ fi;
 XCFRAMEWORK_CMD="xcodebuild -create-xcframework"
 for target in "${link_targets[@]}"
 do
-  XCFRAMEWORK_CMD="$XCFRAMEWORK_CMD -library $LIBPQOUTPUT/$target/lib/libpq.a"
-  XCFRAMEWORK_CMD="$XCFRAMEWORK_CMD -headers $LIBPQOUTPUT/$target/include"
+  XCFRAMEWORK_CMD="$XCFRAMEWORK_CMD -library $OUTPUT/$target/lib/libpq.a"
+  XCFRAMEWORK_CMD="$XCFRAMEWORK_CMD -headers $OUTPUT/$target/include"
 done
 XCFRAMEWORK_CMD="$XCFRAMEWORK_CMD -output $XCFRAMEWORKS/libpq.xcframework"
 printf "\n\n--> XCFramework libpq"
