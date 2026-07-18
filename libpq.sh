@@ -395,8 +395,8 @@ if elementIn "$target" "${build_targets[@]}"; then
     printf "\n\n--> iOS arm64 libpq Compilation"
 
   ./configure --host=aarch64-apple-darwin --without-readline --without-icu --with-openssl \
-    CC="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
-    CXX="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
+    CC="/usr/bin/clang -target arm64-apple-ios${MIN_IOS_VERSION} -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
+    CXX="/usr/bin/clang -target arm64-apple-ios${MIN_IOS_VERSION} -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -arch arm64 -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
@@ -431,8 +431,8 @@ if elementIn "$target" "${build_targets[@]}"; then
     printf "\n\n--> iOS arm64e libpq Compilation"
 
   ./configure --host=aarch64-apple-darwin --without-readline --without-icu --with-openssl \
-    CC="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
-    CXX="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
+    CC="/usr/bin/clang -target arm64e-apple-ios${MIN_IOS_VERSION} -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
+    CXX="/usr/bin/clang -target arm64e-apple-ios${MIN_IOS_VERSION} -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -arch arm64e -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
@@ -508,8 +508,8 @@ if elementIn "$target" "${build_targets[@]}"; then
     printf "\n\n--> Simulator arm64e libpq Compilation"
 
   ./configure --host=aarch64-apple-darwin --without-readline --without-icu --with-openssl \
-    CC="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
-    CXX="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
+    CC="/usr/bin/clang -target arm64e-apple-ios${MIN_IOS_VERSION}-simulator -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
+    CXX="/usr/bin/clang -target arm64e-apple-ios${MIN_IOS_VERSION}-simulator -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -arch arm64e -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
@@ -545,8 +545,8 @@ if elementIn "$target" "${build_targets[@]}"; then
     printf "\n\n--> Simulator x86_64 libpq Compilation"
 
   ./configure --host=x86_64-apple-darwin --without-readline --without-icu --with-openssl \
-    CC="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
-    CXX="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
+    CC="/usr/bin/clang -target x86_64-apple-ios${MIN_IOS_VERSION}-simulator -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
+    CXX="/usr/bin/clang -target x86_64-apple-ios${MIN_IOS_VERSION}-simulator -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -arch x86_64 -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
@@ -581,8 +581,8 @@ if elementIn "$target" "${build_targets[@]}"; then
     printf "\n\n--> Simulator x86_64h libpq Compilation"
 
   ./configure --host=x86_64-apple-darwin --without-readline --without-icu --with-openssl \
-    CC="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
-    CXX="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
+    CC="/usr/bin/clang -target x86_64h-apple-ios${MIN_IOS_VERSION}-simulator -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
+    CXX="/usr/bin/clang -target x86_64h-apple-ios${MIN_IOS_VERSION}-simulator -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -arch x86_64h -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
@@ -634,6 +634,24 @@ printf "\n\n--> XCFramework libpq"
 echo $XCFRAMEWORK_CMD
 eval $XCFRAMEWORK_CMD
 
+# Include the LibreSSL dependencies promised by the README and referenced by
+# the test project. Remove stale copies first so rerunning the build cannot
+# leave slices from an older LibreSSL build behind.
+rm -R -f "$XCFRAMEWORKS/libssl.xcframework" "$XCFRAMEWORKS/libcrypto.xcframework"
+cp -R "$LIBRESSL_OUTPUT_DIR/libssl.xcframework" "$XCFRAMEWORKS/"
+cp -R "$LIBRESSL_OUTPUT_DIR/libcrypto.xcframework" "$XCFRAMEWORKS/"
+
+# Both LibreSSL libraries contain the same header tree. Keep the headers on
+# libcrypto so Xcode does not generate duplicate ProcessXCFramework outputs.
+for headers in "$XCFRAMEWORKS"/libssl.xcframework/*/Headers
+do
+  rm -R "$headers"
+  mkdir -p "$headers"
+done
 
 ## Integrate into test project
-cp -R $XCFRAMEWORKS/*.xcframework $TESTPROJECT
+rm -R -f \
+  "$TESTPROJECT/libpq.xcframework" \
+  "$TESTPROJECT/libssl.xcframework" \
+  "$TESTPROJECT/libcrypto.xcframework"
+cp -R "$XCFRAMEWORKS"/*.xcframework "$TESTPROJECT"
