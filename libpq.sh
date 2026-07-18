@@ -11,7 +11,7 @@ IFS=':' read -r -a link_targets <<< "$LINK_TARGETS"
 
 if [ -z "$VERSION" ]
 then
-  VERSION=11.7 #12.2
+  VERSION=18.4
 fi
 
 if [ -z "$IOS" ]
@@ -24,9 +24,9 @@ then
   MIN_IOS_VERSION=13.0
 fi
 
-if [ -z "$LIBRESSL" ]
+if [ -z "$MIN_CATALYST_VERSION" ]
 then
-  LIBRESSL=3.0.2
+  MIN_CATALYST_VERSION=13.1
 fi
 
 if [ -z "$MACOSX" ]
@@ -40,28 +40,32 @@ declare -a appleSiliconTargets=("simulator_arm64" "simulator_x86_64" "catalyst_x
 
 if [ -z "$build_targets" ]
 then
-  declare -a build_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64")
+  declare -a build_targets=("simulator_arm64" "catalyst_x86_64" "catalyst_arm64" "macos_x86_64" "macos_arm64" "ios-arm64")
 fi
 
 if [ -z "$link_targets" ]
 then
-  declare -a link_targets=("simulator_x86_64" "catalyst_x86_64" "macos_x86_64" "ios-arm64")
+  declare -a link_targets=("simulator_arm64" "catalyst_x86_64" "catalyst_arm64" "macos_x86_64" "macos_arm64" "ios-arm64")
 fi
 
 set -e
 
+# Do not let host package-manager flags leak into cross-compilation commands.
+unset CPPFLAGS CFLAGS CXXFLAGS
+
 XCODE=`/usr/bin/xcode-select -p`
 
-# Download LibreSSL
-
-if [ ! -e "${LIBRESSL}.zip" ]
+# Build LibreSSL from the requested branch. Consumer pull requests use master;
+# LIBRESSL_REF can point at an update branch while validating it.
+if [ -z "$LIBRESSL_OUTPUT_DIR" ]
 then
-  curl -iL --max-redirs 1 -o ${LIBRESSL}.zip https://github.com/build-xcframeworks/libressl/releases/download/${LIBRESSL}/${LIBRESSL}.zip
-fi
-
-if [ ! -d ${LIBRESSL} ]
-then
-  unzip ${LIBRESSL}.zip
+  LIBRESSL_REF=${LIBRESSL_REF:-master}
+  git clone --depth 1 --branch "$LIBRESSL_REF" https://github.com/build-xcframeworks/libressl.git libressl-source
+  (
+    cd libressl-source
+    bash libressl.sh
+  )
+  LIBRESSL_OUTPUT_DIR=$(pwd)/libressl-source/output
 fi
 
 
@@ -89,24 +93,24 @@ then
 fi
 
 mkdir -p libressl/ios/lib
-cp -R ${LIBRESSL}/libssl.xcframework/ios-arm64/Headers libressl/ios/include
-cp -R ${LIBRESSL}/libssl.xcframework/ios-arm64/libssl.a libressl/ios/lib
-cp -R ${LIBRESSL}/libcrypto.xcframework/ios-arm64/libcrypto.a libressl/ios/lib
+cp -R "$LIBRESSL_OUTPUT_DIR/libssl.xcframework/ios-arm64/Headers" libressl/ios/include
+cp -R "$LIBRESSL_OUTPUT_DIR/libssl.xcframework/ios-arm64/libssl.a" libressl/ios/lib
+cp -R "$LIBRESSL_OUTPUT_DIR/libcrypto.xcframework/ios-arm64/libcrypto.a" libressl/ios/lib
 
 mkdir -p libressl/simulator/lib
-cp -R ${LIBRESSL}/libssl.xcframework/*-simulator/Headers libressl/simulator/include
-cp -R ${LIBRESSL}/libssl.xcframework/*-simulator/libssl.a libressl/simulator/lib
-cp -R ${LIBRESSL}/libcrypto.xcframework/*-simulator/libcrypto.a libressl/simulator/lib
+cp -R "$LIBRESSL_OUTPUT_DIR/libssl.xcframework/ios-arm64-simulator/Headers" libressl/simulator/include
+cp -R "$LIBRESSL_OUTPUT_DIR/libssl.xcframework/ios-arm64-simulator/libssl.a" libressl/simulator/lib
+cp -R "$LIBRESSL_OUTPUT_DIR/libcrypto.xcframework/ios-arm64-simulator/libcrypto.a" libressl/simulator/lib
 
 mkdir -p libressl/macos/lib
-cp -R ${LIBRESSL}/libssl.xcframework/macos-*/Headers libressl/macos/include
-cp -R ${LIBRESSL}/libssl.xcframework/macos-*/libssl.a libressl/macos/lib
-cp -R ${LIBRESSL}/libcrypto.xcframework/macos-*/libcrypto.a libressl/macos/lib
+cp -R "$LIBRESSL_OUTPUT_DIR/libssl.xcframework/macos-arm64_x86_64/Headers" libressl/macos/include
+cp -R "$LIBRESSL_OUTPUT_DIR/libssl.xcframework/macos-arm64_x86_64/libssl.a" libressl/macos/lib
+cp -R "$LIBRESSL_OUTPUT_DIR/libcrypto.xcframework/macos-arm64_x86_64/libcrypto.a" libressl/macos/lib
 
 mkdir -p libressl/catalyst/lib
-cp -R ${LIBRESSL}/libssl.xcframework/*-maccatalyst/Headers libressl/catalyst/include
-cp -R ${LIBRESSL}/libssl.xcframework/*-maccatalyst/libssl.a libressl/catalyst/lib
-cp -R ${LIBRESSL}/libcrypto.xcframework/*-maccatalyst/libcrypto.a libressl/catalyst/lib
+cp -R "$LIBRESSL_OUTPUT_DIR/libssl.xcframework/ios-arm64_x86_64-maccatalyst/Headers" libressl/catalyst/include
+cp -R "$LIBRESSL_OUTPUT_DIR/libssl.xcframework/ios-arm64_x86_64-maccatalyst/libssl.a" libressl/catalyst/lib
+cp -R "$LIBRESSL_OUTPUT_DIR/libcrypto.xcframework/ios-arm64_x86_64-maccatalyst/libcrypto.a" libressl/catalyst/lib
 
 
 echo "Let's output all variables for the sake of the CI"
@@ -133,28 +137,11 @@ elementIn () { # source https://stackoverflow.com/questions/3685970/check-if-a-b
   return 1
 }
 
-needsRebuilding() {
-  local target=$1
-  test crypto/.libs/libcrypto.a -nt Makefile
-  timestampCompare=$?
-  if [ $timestampCompare -eq 1 ]; then
-    return 0
-  else
-    arch=`/usr/bin/lipo -archs crypto/.libs/libcrypto.a`
-    if [ "$arch" == "$target" ]; then
-      return 1
-    else
-      return 0
-    fi
-  fi
-
-}
-
 copyToOutput() {
   local target=$1
   local OUTPUT=$2
-  cp src/interfaces/libpq/libpq.a ${OUTPUT}/$target/lib
-  cp src/include/pg_config_ext.h ${OUTPUT}/$target/include
+  /usr/bin/libtool -static -o "${OUTPUT}/$target/lib/libpq.a" \
+    src/interfaces/libpq/libpq.a src/common/libpgcommon_shlib.a src/port/libpgport_shlib.a
   cp src/include/postgres_ext.h ${OUTPUT}/$target/include
   cp src/interfaces/libpq/libpq-fe.h ${OUTPUT}/$target/include
   cp src/include/pg_config.h ${OUTPUT}/$target/include
@@ -166,7 +153,7 @@ copyToOutput() {
 #############################################
 
 target=catalyst_x86_64
-if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
+if elementIn "$target" "${build_targets[@]}"; then
 
   tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
@@ -182,15 +169,15 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
     printf "\n\n--> macOS Catalyst x86_64 libpq Compilation"
 
-  ./configure --without-readline --with-openssl \
-    CC="/usr/bin/clang -target x86_64-apple-ios${IOS}-macabi -isysroot $SDKROOT " \
-    CXX="/usr/bin/clang -target x86_64-apple-ios${IOS}-macabi -isysroot $SDKROOT " \
+  ./configure --without-readline --without-icu --with-openssl \
+    CC="/usr/bin/clang -target x86_64-apple-ios${MIN_CATALYST_VERSION}-macabi -isysroot $SDKROOT " \
+    CXX="/usr/bin/clang -target x86_64-apple-ios${MIN_CATALYST_VERSION}-macabi -isysroot $SDKROOT " \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp -L$LIBRESSLROOT/lib" \
     CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__x86_64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
-  make -C src/interfaces/libpq V=1
+  make -C src/interfaces/libpq libpq.a V=1
 
   copyToOutput $target ${OUTPUT}
 
@@ -206,7 +193,7 @@ fi;
 ############################################
 
 target=catalyst_arm64
-if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
+if elementIn "$target" "${build_targets[@]}"; then
 
   tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
@@ -214,20 +201,20 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
   DEVROOT=$XCODE/Platforms/MacOSX.platform/Developer
   SDKROOT=$DEVROOT/SDKs/MacOSX${MACOSX}.sdk
-  LIBRESSLROOT_RELATIVE=`pwd`/../libressl/macos
+  LIBRESSLROOT_RELATIVE=`pwd`/../libressl/catalyst
   LIBRESSLROOT=$(resolve_path ${LIBRESSLROOT_RELATIVE})
 
   printf "\n\n--> macOS Catalyst arm64 libpq Compilation"
 
-  ./configure --without-readline --with-openssl \
-    CC="/usr/bin/clang -target arm64-apple-ios${IOS}-macabi -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
-    CXX="/usr/bin/clang -target arm64-apple-ios${IOS}-macabi -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
+  ./configure --without-readline --without-icu --with-openssl \
+    CC="/usr/bin/clang -target arm64-apple-ios${MIN_CATALYST_VERSION}-macabi -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
+    CXX="/usr/bin/clang -target arm64-apple-ios${MIN_CATALYST_VERSION}-macabi -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
-  make -C src/interfaces/libpq V=1
+  make -C src/interfaces/libpq libpq.a V=1
 
   copyToOutput $target ${OUTPUT}
 
@@ -244,7 +231,7 @@ fi;
 ###################################
 
 target=macos_arm64
-if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
+if elementIn "$target" "${build_targets[@]}"; then
 
   tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
@@ -257,15 +244,15 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
   printf "\n\n--> macOS arm64 libpq Compilation"
 
-  ./configure --without-readline --with-openssl \
-    CC="/usr/bin/clang -target arm64-apple -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
-    CXX="/usr/bin/clang -target arm64-apple -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
+  ./configure --without-readline --without-icu --with-openssl \
+    CC="/usr/bin/clang -target arm64-apple-macos11.0 -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
+    CXX="/usr/bin/clang -target arm64-apple-macos11.0 -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
-  make -C src/interfaces/libpq V=1
+  make -C src/interfaces/libpq libpq.a V=1
 
   copyToOutput $target ${OUTPUT}
 
@@ -282,7 +269,7 @@ fi;
 ####################################
 
 target=macos_arm64e
-if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
+if elementIn "$target" "${build_targets[@]}"; then
 
   tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
@@ -295,7 +282,7 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
   printf "\n\n--> macOS arm64e libpq Compilation"
 
-  ./configure --without-readline --with-openssl \
+  ./configure --without-readline --without-icu --with-openssl \
     CC="/usr/bin/clang -target arm64-apple-darwin -isysroot $SDKROOT" \
     CXX="/usr/bin/clang -target arm64-apple-darwin -isysroot $SDKROOT" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
@@ -303,7 +290,7 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
     CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="/usr/bin/clang -target arm64-apple-darwin -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
-  make -C src/interfaces/libpq V=1
+  make -C src/interfaces/libpq libpq.a V=1
 
   copyToOutput $target ${OUTPUT}
 
@@ -319,7 +306,7 @@ fi;
 ####################################
 
 target=macos_x86_64
-if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
+if elementIn "$target" "${build_targets[@]}"; then
 
   tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
@@ -332,7 +319,7 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
     printf "\n\n--> macOS x86_64 libpq Compilation"
 
-  ./configure --without-readline --with-openssl \
+  ./configure --without-readline --without-icu --with-openssl \
     CC="/usr/bin/clang -target x86_64-apple-darwin -isysroot $SDKROOT" \
     CXX="/usr/bin/clang -target x86_64-apple-darwin -isysroot $SDKROOT" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
@@ -340,7 +327,7 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
     CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__x86_64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="/usr/bin/clang -target x86_64-apple-darwin -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
-  make -C src/interfaces/libpq V=1
+  make -C src/interfaces/libpq libpq.a V=1
 
   copyToOutput $target ${OUTPUT}
 
@@ -357,7 +344,7 @@ fi;
 #####################################
 
 target=macos_x86_64h
-if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
+if elementIn "$target" "${build_targets[@]}"; then
 
   tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
@@ -370,7 +357,7 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
     printf "\n\n--> macOS x86_64h libpq Compilation"
 
-  ./configure --without-readline --with-openssl \
+  ./configure --without-readline --without-icu --with-openssl \
     CC="/usr/bin/clang -target x86_64-apple -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CXX="/usr/bin/clang -target x86_64-apple -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
@@ -378,7 +365,7 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
     CXXFLAGS="$CPPFLAGS -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__x86_64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
-  make -C src/interfaces/libpq V=1
+  make -C src/interfaces/libpq libpq.a V=1
 
   copyToOutput $target ${OUTPUT}
 
@@ -394,7 +381,7 @@ fi;
 ####################################
 
 target=ios-arm64
-if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
+if elementIn "$target" "${build_targets[@]}"; then
 
   tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
@@ -407,14 +394,14 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
     printf "\n\n--> iOS arm64 libpq Compilation"
 
-  ./configure --host=aarch64-apple-darwin --without-readline --with-openssl \
+  ./configure --host=aarch64-apple-darwin --without-readline --without-icu --with-openssl \
     CC="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CXX="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -arch arm64 -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="$DEVROOT/usr/bin/ld -L$PREFIX/arm64/lib" PG_SYSROOT="$SDKROOT"
-  make -C src/interfaces/libpq
+  make -C src/interfaces/libpq libpq.a
 
   copyToOutput $target ${OUTPUT}
 
@@ -430,7 +417,7 @@ fi;
 ####################################
 
 target=ios-arm64e
-if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
+if elementIn "$target" "${build_targets[@]}"; then
 
   tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
@@ -443,14 +430,14 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
     printf "\n\n--> iOS arm64e libpq Compilation"
 
-  ./configure --host=aarch64-apple-darwin --without-readline --with-openssl \
+  ./configure --host=aarch64-apple-darwin --without-readline --without-icu --with-openssl \
     CC="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CXX="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -arch arm64e -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="$DEVROOT/usr/bin/ld -L$PREFIX/arm64/lib" PG_SYSROOT="$SDKROOT"
-  make -C src/interfaces/libpq
+  make -C src/interfaces/libpq libpq.a
 
   copyToOutput $target ${OUTPUT}
 
@@ -469,7 +456,7 @@ fi;
 ###########################################
 
 target=simulator_arm64
-if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
+if elementIn "$target" "${build_targets[@]}"; then
 
   tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
@@ -483,14 +470,14 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
     printf "\n\n--> Simulator arm64 libpq Compilation"
 	echo "-L$LIBRESSLROOT/lib"
 
-  ./configure --host=aarch64-apple-darwin --without-readline --with-openssl \
-    CC="/usr/bin/clang -isysroot $SDKROOT" \
-    CXX="/usr/bin/clang -isysroot $SDKROOT" \
+  ./configure --host=aarch64-apple-darwin --without-readline --without-icu --with-openssl \
+    CC="/usr/bin/clang -target arm64-apple-ios${MIN_IOS_VERSION}-simulator -isysroot $SDKROOT" \
+    CXX="/usr/bin/clang -target arm64-apple-ios${MIN_IOS_VERSION}-simulator -isysroot $SDKROOT" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include -L$LIBRESSLROOT/lib" \
     CFLAGS="$CPPFLAGS -arch arm64 -pipe -no-cpp-precomp -L$LIBRESSLROOT/lib" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="$DEVROOT/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
-  make -C src/interfaces/libpq
+  make -C src/interfaces/libpq libpq.a
 
   copyToOutput $target ${OUTPUT}
 
@@ -507,7 +494,7 @@ fi;
 ############################################
 
 target=simulator_arm64e
-if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
+if elementIn "$target" "${build_targets[@]}"; then
 
   tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
@@ -520,14 +507,14 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
     printf "\n\n--> Simulator arm64e libpq Compilation"
 
-  ./configure --host=aarch64-apple-darwin --without-readline --with-openssl \
+  ./configure --host=aarch64-apple-darwin --without-readline --without-icu --with-openssl \
     CC="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CXX="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -arch arm64e -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="$DEVROOT/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
-  make -C src/interfaces/libpq
+  make -C src/interfaces/libpq libpq.a
 
   copyToOutput $target ${OUTPUT}
 
@@ -544,7 +531,7 @@ fi;
 
 #TODO: Doesn't configure all right
 target=simulator_x86_64
-if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
+if elementIn "$target" "${build_targets[@]}"; then
 
   tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
@@ -557,14 +544,14 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
     printf "\n\n--> Simulator x86_64 libpq Compilation"
 
-  ./configure --host=x86_64-apple-darwin --without-readline --with-openssl \
+  ./configure --host=x86_64-apple-darwin --without-readline --without-icu --with-openssl \
     CC="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CXX="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -arch x86_64 -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="$DEVROOT/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
-  make -C src/interfaces/libpq
+  make -C src/interfaces/libpq libpq.a
 
   copyToOutput $target ${OUTPUT}
 
@@ -580,7 +567,7 @@ fi;
 #############################################
 
 target=simulator_x86_64h
-if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
+if elementIn "$target" "${build_targets[@]}"; then
 
   tar -zxf "postgresql-${VERSION}.tar.gz"
   cd postgresql-${VERSION}
@@ -593,14 +580,14 @@ if needsRebuilding "$target" && elementIn "$target" "${build_targets[@]}"; then
 
     printf "\n\n--> Simulator x86_64h libpq Compilation"
 
-  ./configure --host=x86_64-apple-darwin --without-readline --with-openssl \
+  ./configure --host=x86_64-apple-darwin --without-readline --without-icu --with-openssl \
     CC="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CXX="/usr/bin/clang -isysroot $SDKROOT -L$LIBRESSLROOT/lib" \
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -arch x86_64h -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
     LD="$DEVROOT/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
-  make -C src/interfaces/libpq
+  make -C src/interfaces/libpq libpq.a
 
   copyToOutput $target ${OUTPUT}
 
@@ -616,8 +603,29 @@ fi;
 ##################################
 
 XCFRAMEWORK_CMD="xcodebuild -create-xcframework"
+
+if elementIn "catalyst_x86_64" "${link_targets[@]}" && elementIn "catalyst_arm64" "${link_targets[@]}"; then
+  mkdir -p "$OUTPUT/catalyst_universal/lib" "$OUTPUT/catalyst_universal/include"
+  /usr/bin/lipo -create "$OUTPUT/catalyst_x86_64/lib/libpq.a" "$OUTPUT/catalyst_arm64/lib/libpq.a" -output "$OUTPUT/catalyst_universal/lib/libpq.a"
+  cp -R "$OUTPUT/catalyst_arm64/include/." "$OUTPUT/catalyst_universal/include"
+  XCFRAMEWORK_CMD="$XCFRAMEWORK_CMD -library $OUTPUT/catalyst_universal/lib/libpq.a -headers $OUTPUT/catalyst_universal/include"
+fi
+
+if elementIn "macos_x86_64" "${link_targets[@]}" && elementIn "macos_arm64" "${link_targets[@]}"; then
+  mkdir -p "$OUTPUT/macos_universal/lib" "$OUTPUT/macos_universal/include"
+  /usr/bin/lipo -create "$OUTPUT/macos_x86_64/lib/libpq.a" "$OUTPUT/macos_arm64/lib/libpq.a" -output "$OUTPUT/macos_universal/lib/libpq.a"
+  cp -R "$OUTPUT/macos_arm64/include/." "$OUTPUT/macos_universal/include"
+  XCFRAMEWORK_CMD="$XCFRAMEWORK_CMD -library $OUTPUT/macos_universal/lib/libpq.a -headers $OUTPUT/macos_universal/include"
+fi
+
 for target in "${link_targets[@]}"
 do
+  if [[ "$target" == catalyst_* ]] && elementIn "catalyst_x86_64" "${link_targets[@]}" && elementIn "catalyst_arm64" "${link_targets[@]}"; then
+    continue
+  fi
+  if [[ "$target" == macos_* ]] && elementIn "macos_x86_64" "${link_targets[@]}" && elementIn "macos_arm64" "${link_targets[@]}"; then
+    continue
+  fi
   XCFRAMEWORK_CMD="$XCFRAMEWORK_CMD -library $OUTPUT/$target/lib/libpq.a"
   XCFRAMEWORK_CMD="$XCFRAMEWORK_CMD -headers $OUTPUT/$target/include"
 done

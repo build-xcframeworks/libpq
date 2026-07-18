@@ -8,4 +8,5 @@ output
 /libpq-test/libpq-test.xcodeproj/project.xcworkspace/xcshareddata
 3.*
 libressl
+libressl-source
 /Fat
