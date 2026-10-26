@@ -11,7 +11,7 @@ IFS=':' read -r -a link_targets <<< "$LINK_TARGETS"
 
 if [ -z "$VERSION" ]
 then
-  VERSION=18.4
+  VERSION=18.6
 fi
 
 if [ -z "$IOS" ]
@@ -53,7 +53,7 @@ set -e
 # Do not let host package-manager flags leak into cross-compilation commands.
 unset CPPFLAGS CFLAGS CXXFLAGS
 
-XCODE=`/usr/bin/xcode-select -p`
+XCODE=${DEVELOPER_DIR:-$(/usr/bin/xcode-select -p)}
 
 # Build LibreSSL from the requested branch. Consumer pull requests use master;
 # LIBRESSL_REF can point at an update branch while validating it.
@@ -400,7 +400,7 @@ if elementIn "$target" "${build_targets[@]}"; then
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -arch arm64 -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-    LD="$DEVROOT/usr/bin/ld -L$PREFIX/arm64/lib" PG_SYSROOT="$SDKROOT"
+    LD="/usr/bin/ld -L$PREFIX/arm64/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq libpq.a
 
   copyToOutput $target ${OUTPUT}
@@ -436,7 +436,7 @@ if elementIn "$target" "${build_targets[@]}"; then
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -arch arm64e -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-    LD="$DEVROOT/usr/bin/ld -L$PREFIX/arm64/lib" PG_SYSROOT="$SDKROOT"
+    LD="/usr/bin/ld -L$PREFIX/arm64/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq libpq.a
 
   copyToOutput $target ${OUTPUT}
@@ -476,7 +476,7 @@ if elementIn "$target" "${build_targets[@]}"; then
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include -L$LIBRESSLROOT/lib" \
     CFLAGS="$CPPFLAGS -arch arm64 -pipe -no-cpp-precomp -L$LIBRESSLROOT/lib" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-    LD="$DEVROOT/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
+    LD="/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq libpq.a
 
   copyToOutput $target ${OUTPUT}
@@ -513,7 +513,7 @@ if elementIn "$target" "${build_targets[@]}"; then
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -arch arm64e -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-    LD="$DEVROOT/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
+    LD="/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq libpq.a
 
   copyToOutput $target ${OUTPUT}
@@ -550,7 +550,7 @@ if elementIn "$target" "${build_targets[@]}"; then
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -arch x86_64 -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-    LD="$DEVROOT/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
+    LD="/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq libpq.a
 
   copyToOutput $target ${OUTPUT}
@@ -586,7 +586,7 @@ if elementIn "$target" "${build_targets[@]}"; then
     CPPFLAGS="-fembed-bitcode -I$SDKROOT/usr/include/ -I$LIBRESSLROOT/include" \
     CFLAGS="$CPPFLAGS -arch x86_64h -pipe -no-cpp-precomp" \
     CPP="/usr/bin/clang -E -D__arm64__=1 $CPPFLAGS -isysroot $SDKROOT" \
-    LD="$DEVROOT/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
+    LD="/usr/bin/ld -L$LIBRESSLROOT/lib" PG_SYSROOT="$SDKROOT"
   make -C src/interfaces/libpq libpq.a
 
   copyToOutput $target ${OUTPUT}
@@ -630,6 +630,7 @@ do
   XCFRAMEWORK_CMD="$XCFRAMEWORK_CMD -headers $OUTPUT/$target/include"
 done
 XCFRAMEWORK_CMD="$XCFRAMEWORK_CMD -output $XCFRAMEWORKS/libpq.xcframework"
+rm -R -f "$XCFRAMEWORKS/libpq.xcframework"
 printf "\n\n--> XCFramework libpq"
 echo $XCFRAMEWORK_CMD
 eval $XCFRAMEWORK_CMD

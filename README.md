@@ -1,5 +1,5 @@
 # libpq on Apple platforms
-A script to compile PostgreSQL 18.4 libpq with LibreSSL for Apple platforms.
+A script to compile PostgreSQL 18.6 libpq with LibreSSL for Apple platforms.
 
 Instructions:
 1. Clone:
